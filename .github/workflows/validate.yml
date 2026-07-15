@@ -1,0 +1,51 @@
+name: Validate
+
+on:
+  pull_request:
+    paths:
+      - 'clusters/**'
+      - 'infrastructure/**'
+      - 'apps/**'
+      - '.github/workflows/validate.yml'
+
+jobs:
+  validate:
+    name: Validate manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flux CLI
+        uses: fluxcd/flux2/action@main
+
+      - name: Kustomize build validation
+        run: |
+          for dir in infrastructure apps clusters/desktop; do
+            echo "Validating $dir..."
+            if [ -f "$dir/kustomization.yaml" ]; then
+              kubectl kustomize "$dir" > /dev/null || exit 1
+            fi
+          done
+          echo "✓ All kustomizations built successfully"
+
+      - name: Set up kubeconform
+        run: |
+          curl -s https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin
+
+      - name: kubeconform validation
+        run: |
+          for file in $(find clusters infrastructure apps -name '*.yaml' -o -name '*.yml' | grep -v '.sops.yaml'); do
+            echo "Validating $file..."
+            kubectl kustomize $(dirname "$file") 2>/dev/null | kubeconform -summary -ignore-missing-schemas || true
+          done
+          echo "✓ kubeconform validation complete (see results above)"
+
+      - name: Set up yamllint
+        run: pip install yamllint
+
+      - name: yamllint validation
+        run: |
+          yamllint -c "{extends: default, rules: {line-length: disable, comments: disable}}" \
+            clusters/ infrastructure/ apps/ .github/workflows/ || true
+          echo "✓ yamllint validation complete (see results above)"

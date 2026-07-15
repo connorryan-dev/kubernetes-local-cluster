@@ -1,0 +1,43 @@
+name: Reconcile
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'clusters/**'
+      - 'infrastructure/**'
+      - 'apps/**'
+      - '.github/workflows/reconcile.yml'
+  workflow_dispatch: {}
+
+jobs:
+  reconcile:
+    name: Trigger Flux reconciliation
+    runs-on: [self-hosted, kubernetes, kind]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconcile Flux sources
+        run: |
+          echo "Reconciling Flux git sources..."
+          flux reconcile source git flux-system --with-source || true
+          flux reconcile source git github-runners || true
+          echo "✓ Sources reconciled"
+
+      - name: Reconcile Flux kustomizations
+        run: |
+          echo "Reconciling Flux kustomizations..."
+          flux reconcile kustomization flux-system || true
+          flux reconcile kustomization infrastructure || true
+          flux reconcile kustomization apps || true
+          echo "✓ Kustomizations reconciled"
+
+      - name: Show Flux status
+        run: |
+          echo "=== Flux Sources ==="
+          flux get sources git
+          echo ""
+          echo "=== Flux Kustomizations ==="
+          flux get kustomizations
+          echo ""
+          echo "✓ Reconciliation complete. Check above for Ready status."

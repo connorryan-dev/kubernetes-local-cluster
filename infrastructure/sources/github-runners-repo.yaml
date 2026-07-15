@@ -1,0 +1,10 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: github-runners
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/connorryan-dev/github_runners.git
+  ref:
+    branch: main
