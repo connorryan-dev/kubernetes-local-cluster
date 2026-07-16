@@ -7,17 +7,11 @@ spec:
   interval: 10m
   sourceRef:
     kind: GitRepository
-    name: flux-system
-  path: ./infrastructure/runners
+    name: github-runners
+  path: ./helm
   prune: true
   wait: true
   timeout: 3m
   dependsOn:
     - name: namespaces
   targetNamespace: github-runners
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
-  postBuild:
-    substitute: {}
