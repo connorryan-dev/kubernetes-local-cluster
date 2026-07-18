@@ -42,17 +42,18 @@ This guide explains how to add a new Kubernetes namespace to the cluster and dec
 
 ## If your namespace needs a resource Secret or ConfigMap
 
-If your namespace's workloads need shared Secrets or ConfigMaps, you can add them to the namespace kustomization:
+ConfigMaps can be added to the namespace kustomization like any other resource:
 
 ```yaml
 # infrastructure/namespaces/kustomization.yaml
 resources:
   - github-runners.yaml
   - my-app.yaml
-  - my-app-secrets.sops.yaml  # encrypted Secret for my-app workloads
+  - my-app-configmap.yaml
 ```
 
-For secrets, use SOPS encryption (see `docs/secrets.md`).
+Secrets are **not** tracked in git here — create them directly in the namespace with
+`kubectl create secret` after the namespace exists (see `docs/secrets.md`).
 
 ## Namespace labels and annotations
 

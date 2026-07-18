@@ -139,28 +139,18 @@ If your app is distributed as a Helm chart:
 
 ## Managing app-specific Secrets
 
-If your app needs encrypted Secrets, store them in the app's directory and enable SOPS:
+No Secret values are tracked in this repo. If your app needs a Secret, create it directly in
+its target namespace with `kubectl create secret` after the namespace/app Kustomization has
+reconciled:
 
-```yaml
-# apps/bento/kustomization.yaml
-resources:
-  - repository.yaml
-  - kustomization-resource.yaml
-  - bento-secrets.sops.yaml  # encrypted Secret
+```bash
+kubectl create secret generic bento-secrets \
+  -n bento --from-literal=SOME_KEY=<value>
 ```
 
-Then reference SOPS in the `Kustomization`:
-
-```yaml
-# apps/bento/kustomization-resource.yaml
-spec:
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age  # must exist in flux-system
-```
-
-See `docs/secrets.md` for how to encrypt and manage secrets.
+Document the exact command (and what it's for) in the app's own docs or `docs/secrets.md`.
+Never commit a Secret value anywhere, plaintext or encrypted. See `docs/secrets.md` for the
+full manual-secrets workflow and the reasoning behind it.
 
 ## CI/CD integration
 

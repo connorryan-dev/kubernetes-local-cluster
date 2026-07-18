@@ -1,162 +1,56 @@
-# Secrets Management with SOPS + age
+# Managing Secrets (manual)
 
-This repo uses [SOPS](https://github.com/mozilla/sops) with [age](https://age-encryption.org/)
-to manage Kubernetes Secrets securely in git, with Flux handling the decryption in-cluster.
+This repo does **not** manage Kubernetes Secrets through git. Secrets (e.g. the runner's
+GitHub PAT) are created directly in the cluster with `kubectl` and are never committed —
+encrypted or otherwise.
 
-## Overview
+## Why manual
 
-- **Age keypair** (`~/.config/sops/age/keys.txt`): lives locally on your machine, NEVER committed to git
-- **SOPS-encrypted Secret** (e.g., `infrastructure/runners/github-runner-secret.sops.yaml`): safe to commit to git
-- **`sops-age` Secret**: created once per cluster in `flux-system` namespace; Flux uses it to decrypt encrypted manifests
+This repo previously used SOPS + age to keep encrypted Secrets in git, with Flux decrypting
+them in-cluster. That's been dropped in favor of a simpler model: nothing secret lives in
+this repo, and secrets are applied by hand whenever a cluster is created or recreated.
 
-## Setting up age (one-time)
+## Creating the runner's GitHub PAT secret
 
-If you haven't already:
+The `github-runner-secrets` Secret (namespace `github-runners`) supplies `GITHUB_TOKEN` to
+the runner Deployment (see `github_runners` repo's `helm/deployment.yaml`). Create it after
+the `github-runners` namespace exists:
+
 ```bash
-mkdir -p ~/.config/sops/age
-age-keygen -o ~/.config/sops/age/keys.txt
-cat ~/.config/sops/age/keys.txt
-# Output:
-# age1... (this is your public key)
-# AGE-SECRET-KEY-1... (this is your private key, keep it secret)
+kubectl create secret generic github-runner-secrets \
+  -n github-runners \
+  --from-literal=GITHUB_TOKEN=<your-github-pat>
 ```
 
-Save the public key (e.g., `age1abc123...`) — you'll need it when encrypting secrets.
+The PAT needs org-level runner registration access (classic PAT with `admin:org` scope, or
+a fine-grained PAT with the org's "Self-hosted runners" permission) — the runner registers
+via `POST /orgs/{org}/actions/runners/registration-token`, not `repo` scope alone.
 
-## Creating a new encrypted Secret
+## Rotating the PAT
 
-To create a new encrypted Secret (e.g., for a new app):
-
-1. Create a plain Secret YAML file:
-   ```yaml
-   apiVersion: v1
-   kind: Secret
-   metadata:
-     name: my-secret
-     namespace: my-namespace
-   type: Opaque
-   stringData:
-     PASSWORD: my-password
-   ```
-
-2. Create a `.sops.yaml` configuration file in the repo root (if not already present):
-   ```yaml
-   creation_rules:
-     - age: AGE1abc123def456...  # replace with your public key (from age-keygen)
-       encrypted_regex: ^(stringData|data)$
-   ```
-
-3. Encrypt the file:
+1. Generate a new PAT in GitHub (Settings → Developer settings → Personal access tokens).
+2. Re-create the Secret with the new value:
    ```bash
-   sops -e -i my-secret.yaml
-   # or for the YAML to remain named *.sops.yaml:
-   sops -e my-secret.yaml > my-secret.sops.yaml
+   kubectl create secret generic github-runner-secrets \
+     -n github-runners \
+     --from-literal=GITHUB_TOKEN=<new-pat> \
+     --dry-run=client -o yaml | kubectl apply -f -
    ```
-
-4. Verify it's encrypted (should contain `ENC[AES256_GCM,...]` instead of plaintext):
-   ```bash
-   cat my-secret.sops.yaml | head -20
-   ```
-
-5. Commit and push:
-   ```bash
-   git add my-secret.sops.yaml
-   git commit -m "Add encrypted secret for my-secret"
-   git push
-   ```
-
-6. In the Kustomization that uses this Secret, enable SOPS decryption:
-   ```yaml
-   spec:
-     decryption:
-       provider: sops
-       secretRef:
-         name: sops-age
-   ```
-
-## Editing an encrypted Secret
-
-To edit a secret that's already encrypted:
-```bash
-sops my-secret.sops.yaml
-```
-
-This opens your `$EDITOR` with the decrypted content. When you save and exit,
-SOPS automatically re-encrypts the file.
-
-Verify the file is still encrypted before committing:
-```bash
-cat my-secret.sops.yaml | head -20  # should see ENC[AES256_GCM,...]
-```
-
-## Rotating the PAT (runner registration token)
-
-The runner's GitHub PAT is stored in `infrastructure/runners/github-runner-secret.sops.yaml`.
-
-To rotate it:
-
-1. Generate a new PAT in GitHub:
-   - Go to Settings → Developer settings → Personal access tokens → Tokens (classic)
-   - Create a new token with `repo` and `workflow` scopes
-   - Copy the token value
-
-2. Edit the encrypted Secret:
-   ```bash
-   sops infrastructure/runners/github-runner-secret.sops.yaml
-   ```
-
-3. Replace the value of `GITHUB_TOKEN` with the new PAT and save.
-
-4. Commit and push:
-   ```bash
-   git add infrastructure/runners/github-runner-secret.sops.yaml
-   git commit -m "Rotate runner GitHub PAT"
-   git push
-   ```
-
-5. Trigger a Flux reconciliation to pick up the change:
-   ```bash
-   flux reconcile kustomization github-runners
-   ```
-
-6. Verify the runner pods restarted:
+3. Restart the runner pods so they pick up the new token:
    ```bash
    kubectl rollout restart deployment/github-runner -n github-runners
    kubectl get pods -n github-runners --watch
    ```
 
-## Troubleshooting
+## After a cluster recreate
 
-### "age: could not decrypt file"
-- Ensure `~/.config/sops/age/keys.txt` exists and is readable
-- Verify the public key in `.sops.yaml` matches your keypair
-- Check that the file is actually encrypted (contains `ENC[AES256_GCM,...]`)
+A recreated cluster has no Secrets at all — re-run the `kubectl create secret` command
+above (and any other manually-managed Secret) after Flux bootstrap finishes. This is a
+manual step called out in `docs/bootstrap-runbook.md`'s recreate checklist; nothing in git
+restores it for you.
 
-### "sops-age Secret not found"
-- Create it in the `flux-system` namespace:
-  ```bash
-  kubectl create secret generic sops-age \
-    -n flux-system \
-    --from-file=age.agekey=$HOME/.config/sops/age/keys.txt
-  ```
+## Adding a new app-specific Secret
 
-### Flux logs show decryption failures
-```bash
-flux logs --all-namespaces | grep -i sops
-```
-
-Common causes:
-- `sops-age` Secret missing or corrupted
-- Public key in `.sops.yaml` doesn't match the private key in `keys.txt`
-- File was encrypted with a different age key than what's in the cluster
-
-### I accidentally committed an unencrypted Secret
-1. Immediately revoke any credentials in that Secret (e.g., regenerate the PAT in GitHub)
-2. Remove the file from git history (e.g., using `git filter-branch` or `BFG Repo-Cleaner`)
-3. Encrypt the corrected version and re-commit
-
-## References
-
-- [SOPS documentation](https://github.com/mozilla/sops)
-- [age documentation](https://age-encryption.org/)
-- [Flux SOPS integration](https://fluxcd.io/flux/guides/mozilla-sops/)
+Same pattern — create it directly in the target namespace with `kubectl create secret`,
+document the exact command in this file or the app's own docs, and never commit the value
+anywhere (plaintext or encrypted).

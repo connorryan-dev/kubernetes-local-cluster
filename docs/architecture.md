@@ -12,7 +12,7 @@ infrastructure.yaml Kustomization
     ├─ sources/                 (GitRepository: github_runners repo)
     ├─ controllers/             (scaffold for future operators)
     └─ runners/                 (Flux Kustomization → github_runners' ./helm)
-        └─ github-runner-secret.sops.yaml (SOPS-encrypted PAT)
+        (github-runner-secrets Secret is created manually, not tracked here)
     ↓
 apps.yaml Kustomization (dependsOn: infrastructure)
     └─ [empty scaffold for future app workloads]
@@ -34,9 +34,10 @@ apps.yaml Kustomization (dependsOn: infrastructure)
 - `apps`: reconciles `apps/` directory; depends on `infrastructure` (apps only start after infra is ready)
 
 ### Secrets management
-Runner's GitHub PAT (`GITHUB_TOKEN`) is encrypted with SOPS + age and stored in
-`infrastructure/runners/github-runner-secret.sops.yaml`. Flux's SOPS Kustomization controller
-decrypts it in-cluster using a keypair stored in the `sops-age` Secret (created once per cluster).
+No Secret values are tracked in this repo. The runner's GitHub PAT (`GITHUB_TOKEN`, in the
+`github-runner-secrets` Secret) is created directly with `kubectl create secret` after
+bootstrap — it is not restored by Flux and must be manually re-applied after every cluster
+recreate.
 
 See `docs/secrets.md` for setup and rotation.
 
@@ -60,8 +61,16 @@ If runner code changes, the runner repo is updated, pushed, and Flux picks up th
 
 ## Disaster recovery
 
-If the cluster is recreated (e.g., `kind delete cluster --name=desktop && kind create cluster --name=desktop`),
-re-run the bootstrap procedure in `docs/bootstrap-runbook.md`. Flux will restore the entire cluster state from git.
+If the cluster is recreated (e.g., `kind delete cluster --name=desktop && kind create cluster
+--name=desktop --config kind-config.yaml`), re-run the bootstrap procedure in
+`docs/bootstrap-runbook.md`. Flux will restore the entire cluster state from git.
 
-The one exception: the SOPS age keypair (`~/.config/sops/age/keys.txt`) and its corresponding
-`sops-age` Secret in `flux-system` must be re-created. This is a documented step in the runbook.
+Two exceptions, both manual, both documented in the runbook:
+- **Secrets** — nothing in git; re-create `github-runner-secrets` (and any other Secret) by hand.
+- **The runner image** — `github-runner:latest` has no registry and isn't in git either; it
+  must be reloaded into the new cluster's containerd via `kind load docker-image` (or
+  `github_runners`' `deploy.sh --kind desktop`), even though it still exists in Docker's own
+  image store on the host.
+
+See `docs/remote-access.md` for a third gotcha specific to this repo's cluster: recreating
+without `kind-config.yaml` silently breaks remote `kubectl`/k9s access.

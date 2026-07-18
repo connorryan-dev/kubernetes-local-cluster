@@ -35,7 +35,7 @@ jobs:
 
       - name: kubeconform validation
         run: |
-          for file in $(find clusters infrastructure apps -name '*.yaml' -o -name '*.yml' | grep -v '.sops.yaml'); do
+          for file in $(find clusters infrastructure apps -name '*.yaml' -o -name '*.yml'); do
             echo "Validating $file..."
             kubectl kustomize $(dirname "$file") 2>/dev/null | kubeconform -summary -ignore-missing-schemas || true
           done
