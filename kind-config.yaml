@@ -22,5 +22,16 @@ nodes:
     hostPort: 6443
     listenAddress: "0.0.0.0"
     protocol: TCP
+# extraMounts bind the Mac mini's NAS share (SMB-mounted at /Users/connor/NAS) into both
+# worker nodes, so workload PVs can use a real hostPath instead of node-local ephemeral
+# storage. Bound on both workers since pod/PV placement isn't pinned to a specific node.
+# Must be present in Docker Desktop's Settings -> Resources -> File Sharing for the mount
+# to succeed. See bento-kubernetes-deployments/docs/postgres.md.
 - role: worker
+  extraMounts:
+  - hostPath: /Users/connor/NAS
+    containerPath: /Users/connor/NAS
 - role: worker
+  extraMounts:
+  - hostPath: /Users/connor/NAS
+    containerPath: /Users/connor/NAS
