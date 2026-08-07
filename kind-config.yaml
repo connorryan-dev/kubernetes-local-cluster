@@ -1,6 +1,11 @@
-# Binds the API server to the Mac mini's Tailscale IP (100.84.198.108) instead of kind's
-# default 127.0.0.1-only binding, so kubectl/k9s work from other machines on the tailnet
+# Binds the API server to the Mac mini's Tailscale address instead of kind's default
+# 127.0.0.1-only binding, so kubectl/k9s work from other machines on the tailnet
 # without an SSH tunnel or port-forward. See docs/remote-access.md for why this exists.
+#
+# certSANs list the MagicDNS hostname (stable) plus the current Tailscale IP. Tailscale
+# IPs churn on logout/login (happened 2026-07-19) — clients should target the hostname;
+# if the IP changes, update it here and follow the in-place kubeadm cert-regen procedure
+# in docs/remote-access.md instead of recreating the cluster.
 #
 # Always pass --config kind-config.yaml when creating/recreating this cluster:
 #   kind create cluster --name=desktop --image kindest/node:v1.33.0 --config kind-config.yaml
@@ -14,7 +19,8 @@ nodes:
     kind: ClusterConfiguration
     apiServer:
       certSANs:
-      - "100.84.198.108"
+      - "connors-mac-mini.tail93da06.ts.net"
+      - "100.123.24.88"
       - "localhost"
       - "127.0.0.1"
   extraPortMappings:

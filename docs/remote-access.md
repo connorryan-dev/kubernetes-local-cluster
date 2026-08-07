@@ -30,12 +30,14 @@ binds the API server to all interfaces on the Mac mini, and
 ```yaml
 apiServer:
   certSANs:
-  - "100.84.198.108"   # Mac mini's Tailscale IP
+  - "connors-mac-mini.tail93da06.ts.net"   # Mac mini's MagicDNS hostname (stable)
+  - "100.123.24.88"                        # Mac mini's current Tailscale IP
   - "localhost"
   - "127.0.0.1"
 ```
-adds the Tailscale IP to the server cert so `kubectl` doesn't need
-`--insecure-skip-tls-verify`.
+adds the Tailscale names to the server cert so `kubectl` doesn't need
+`--insecure-skip-tls-verify`. Clients should target the MagicDNS hostname — Tailscale
+IPs are **not stable** across logout/login (see "Tailscale IP churn" below).
 
 Always create/recreate the cluster with this config:
 ```bash
@@ -56,20 +58,21 @@ An older, unrelated local setup (documented in the `bento-kubernetes-deployments
 anyone who finds the port can attempt a connection (client cert auth is still required, but
 it's still surface area you don't need).
 
-This cluster instead binds to the Mac mini's **Tailscale IP** (`100.84.198.108`). Tailscale
-already restricts who can reach that address to devices on the tailnet — no router
-configuration, no public exposure, no port-forwarding rule to maintain or forget about.
+This cluster instead binds to the Mac mini's **Tailscale address**
+(`connors-mac-mini.tail93da06.ts.net`, currently `100.123.24.88`). Tailscale already
+restricts who can reach that address to devices on the tailnet — no router configuration,
+no public exposure, no port-forwarding rule to maintain or forget about.
 
 ## Client-side setup (e.g. the MacBook Pro)
 
 1. Fetch the kubeconfig from the Mac mini:
    ```bash
-   ssh connor@100.84.198.108 "kind get kubeconfig --name desktop" > kind-remote-config.yaml
+   ssh connor@connors-mac-mini.tail93da06.ts.net "export PATH=/opt/homebrew/bin:\$PATH && kind get kubeconfig --name desktop" > kind-remote-config.yaml
    ```
-2. Edit the `server:` line to use the Tailscale IP instead of whatever loopback port kind
-   printed:
+2. Edit the `server:` line to use the MagicDNS hostname instead of whatever loopback port
+   kind printed:
    ```bash
-   sed -i '' 's|https://127.0.0.1:[0-9]*|https://100.84.198.108:6443|' kind-remote-config.yaml
+   sed -i '' 's|https://127.0.0.1:[0-9]*|https://connors-mac-mini.tail93da06.ts.net:6443|' kind-remote-config.yaml
    ```
 3. Point `KUBECONFIG` at it (session or permanent via shell rc):
    ```bash
@@ -79,6 +82,31 @@ configuration, no public exposure, no port-forwarding rule to maintain or forget
 
 k9s uses the same kubeconfig resolution as kubectl, so it works the same way — no extra
 setup once `KUBECONFIG` is pointed correctly.
+
+## Tailscale IP churn — fix the cert in place, don't recreate
+
+Tailscale IPs change on logout/login (both machines' IPs changed on 2026-07-19, and the
+2026-08-07 cluster recreate baked the then-stale IP into the cert, breaking remote kubectl
+with `x509: certificate is valid for ..., not <new-ip>`). The kubeconfig `server:` line and
+this cluster's `certSANs` are the two places that break. The hostname in `certSANs` makes
+clients immune as long as they target the hostname; if the cert itself needs a new SAN,
+regenerate it in place — kind nodes are real kubeadm nodes, no cluster recreate needed:
+
+```bash
+# On the Mac mini:
+docker exec desktop-control-plane sh -c '
+  cp /etc/kubernetes/pki/apiserver.crt /etc/kubernetes/pki/apiserver.crt.bak
+  cp /etc/kubernetes/pki/apiserver.key /etc/kubernetes/pki/apiserver.key.bak
+  sed -i "s/^  - <OLD_SAN>$/  - <OLD_SAN>\n  - <NEW_SAN>/" /kind/kubeadm.conf
+  rm /etc/kubernetes/pki/apiserver.crt /etc/kubernetes/pki/apiserver.key
+  kubeadm init phase certs apiserver --config /kind/kubeadm.conf   # re-signs from existing CA
+'
+docker exec desktop-control-plane sh -c 'crictl pods --name kube-apiserver -q | xargs crictl stopp'
+```
+
+Then mirror the same `certSANs` edit into the `kube-system/kubeadm-config` ConfigMap and
+this repo's `kind-config.yaml`, and clean up the `.bak` files once confirmed. Client creds
+stay valid — only the server cert is re-issued.
 
 ## What this does NOT cover
 
