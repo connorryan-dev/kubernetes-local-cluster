@@ -1,0 +1,2 @@
+# OpenBao unseal keys / root token — generated locally by init-openbao.sh, never commit
+apps/openbao/scripts/unseal-keys.txt

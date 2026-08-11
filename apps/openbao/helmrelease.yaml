@@ -1,0 +1,143 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openbao
+  namespace: flux-system
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: openbao
+      sourceRef:
+        kind: HelmRepository
+        name: openbao
+        namespace: flux-system
+  targetNamespace: bento-dev
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    global:
+      enabled: true
+
+    server:
+      image:
+        registry: ghcr.io
+        repository: openbao/openbao
+        tag: latest
+        pullPolicy: IfNotPresent
+
+      # Resource limits kept at the same minimal dev-cluster levels as the
+      # source bento-kubernetes-deployments values.yaml.
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: 250m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+
+      # Persistent storage for Raft data (one PVC per pod)
+      dataStorage:
+        enabled: true
+        size: 1Gi
+        storageClass: null # use cluster default
+
+      # Unseal-agent sidecar: reads keys from the openbao-unseal-keys secret
+      # and automatically unseals OpenBao whenever it starts sealed.
+      # On first boot the secret doesn't exist yet (optional: true) — run
+      # apps/openbao/scripts/init-openbao.sh once to initialize and populate it.
+      extraContainers:
+        - name: unseal-agent
+          image: ghcr.io/openbao/openbao:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Unseal agent started"
+              while true; do
+                sleep 5
+                # bao status exits 0=unsealed, 2=sealed, other=not ready
+                bao status > /dev/null 2>&1
+                STATUS_CODE=$?
+                if [ $STATUS_CODE -eq 2 ]; then
+                  echo "OpenBao is sealed - attempting unseal..."
+                  for f in /etc/unseal-keys/unseal_key_*; do
+                    if [ -f "$f" ]; then
+                      bao operator unseal "$(cat "$f")" 2>&1 || true
+                    fi
+                  done
+                fi
+              done
+          env:
+            - name: BAO_ADDR
+              value: "http://127.0.0.1:8200"
+            - name: VAULT_ADDR
+              value: "http://127.0.0.1:8200"
+          volumeMounts:
+            - name: unseal-keys
+              mountPath: /etc/unseal-keys
+              readOnly: true
+
+      # Mount the unseal-keys secret into each pod.
+      # optional: true means pods start even before the secret exists.
+      volumes:
+        - name: unseal-keys
+          secret:
+            secretName: openbao-unseal-keys
+            optional: true
+
+      # Disable anti-affinity so all 3 pods can run on the single Kind node
+      affinity: ""
+
+      ha:
+        enabled: true
+        replicas: 3
+
+        raft:
+          enabled: true
+          setNodeId: true
+
+          config: |
+            ui = true
+
+            listener "tcp" {
+              tls_disable     = 1
+              address         = "[::]:8200"
+              cluster_address = "[::]:8201"
+            }
+
+            storage "raft" {
+              path = "/openbao/data"
+
+              retry_join {
+                leader_api_addr = "http://openbao-0.openbao-internal:8200"
+              }
+              retry_join {
+                leader_api_addr = "http://openbao-1.openbao-internal:8200"
+              }
+              retry_join {
+                leader_api_addr = "http://openbao-2.openbao-internal:8200"
+              }
+            }
+
+            service_registration "kubernetes" {}
+
+      # Disable TLS for in-cluster HTTP (matches current configmap OPENBAO_ADDR)
+      extraEnvironmentVars:
+        VAULT_SKIP_VERIFY: "true"
+
+    # Disable the injector — not needed for this setup
+    injector:
+      enabled: false
+
+    # Disable the CSI provider
+    csi:
+      enabled: false
+
+    # UI is enabled in the HCL config above; expose it via the service if desired
+    ui:
+      enabled: false

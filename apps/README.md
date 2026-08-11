@@ -1,27 +1,33 @@
-# Applications (Backlog)
+# Applications
 
-This directory is reserved for application-specific workloads deployed to the cluster.
-It is currently empty — Flux's `apps` Kustomization has `resources: []`.
+## Migrated: OpenBao and Redis
 
-## Future work: Migrate Bento
+`apps/openbao/` and `apps/redis/` are migrated from the sibling repo
+`bento-kubernetes-deployments` (which deployed them imperatively via `kubectl apply` /
+`helm install`). Both deploy into the `bento-dev` namespace, matching where they ran
+before so Bento's existing connection config (service DNS names, port-forwards) still
+works unchanged.
 
-The sibling repo `bento-kubernetes-deployments` contains the current imperative deployment
-configuration for the Bento application, including:
-- Namespaces: `bento-dev`, `bento-test`
-- Postgres, RabbitMQ, Redis (backing services)
-- OpenBao (secrets management)
+- **OpenBao** — Flux `HelmRepository` + `HelmRelease` (chart `openbao/openbao`), 3-replica
+  Raft HA, same minimal dev-cluster resource limits as the source `values.yaml`. Initial
+  init/unseal is a manual one-time step — see `apps/openbao/scripts/README.md` and
+  `docs/secrets.md`.
+- **Redis** — direct port of the source `redis-deployment.yaml` (same image, command,
+  resource limits), with the PVC switched to KIND's default `standard` StorageClass
+  instead of the source's hardcoded hostPath PV, and the password moved out of git into a
+  manually-created Secret (see `docs/secrets.md`).
 
-This is a candidate for the first "real" app to migrate into this repo using Flux GitOps.
+## Not migrated
 
-### Recommended approach (when ready)
+- **Postgres** — already runs outside `bento-kubernetes-deployments`, as a standalone
+  container on the NAS. Not part of this repo.
+- **RabbitMQ** — removed from the Bento stack entirely upstream; nothing to migrate.
 
-1. Create `apps/bento/` subdirectory
-2. Convert raw manifests and Helm values to Flux `HelmRelease` + `GitRepository`/`HelmRepository` sources
-3. Ensure RabbitMQ Cluster Operator and other required CRDs are installed in `infrastructure/controllers/`
-4. Add a Flux `Kustomization` in `infrastructure/runners/kustomization.yaml` with `dependsOn: [infrastructure]`
-   so Bento does not reconcile until infrastructure is ready
-5. Update the CI workflow in `.github/workflows/` to validate Bento-specific manifests
+## Future work
 
-### Documentation
+A self-host Helm chart packaging Bento + its backing services for external end users has
+been discussed as a separate, later effort — it would live in `bentra-runners` (alongside
+the existing `charts/bentra-runner` chart), not here. This repo's `apps/` directory is
+Flux/GitOps for *this* cluster specifically, not a redistributable installer.
 
-See `docs/adding-an-app.md` for the how-to guide.
+See `docs/adding-an-app.md` for the general how-to guide when onboarding further apps.
