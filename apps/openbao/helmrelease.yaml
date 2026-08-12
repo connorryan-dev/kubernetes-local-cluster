@@ -13,6 +13,11 @@ spec:
         name: openbao
         namespace: flux-system
   targetNamespace: bento-dev
+  # Pin the release name to match the source deployment exactly — the chart's
+  # raft retry_join config and init-openbao.sh both hardcode pod names derived
+  # from this (openbao-0/1/2, openbao-internal headless service). Flux's
+  # default <namespace>-<name> release naming would break both.
+  releaseName: openbao
   install:
     remediation:
       retries: 3
