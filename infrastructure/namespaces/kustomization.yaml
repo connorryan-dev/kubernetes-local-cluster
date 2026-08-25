@@ -3,5 +3,6 @@ kind: Kustomization
 resources:
   - github-runners.yaml
   - github-runners-quota.yaml
+  - github-runners-limitrange.yaml
   - bento-dev.yaml
   - flux-kustomization.yaml
