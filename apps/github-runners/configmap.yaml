@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: github-runner-config
+  namespace: github-runners
+data:
+  # Runner labels applied when registering with GitHub.
+  # Jobs can target these runners with: runs-on: [self-hosted, kubernetes, kind]
+  RUNNER_LABELS: "self-hosted,kubernetes,kind"
+  GITHUB_ORG: "bentraLLC"
+  # Points the runner's docker CLI at the DinD sidecar's daemon (see deployment.yaml).
+  DOCKER_HOST: "tcp://localhost:2375"

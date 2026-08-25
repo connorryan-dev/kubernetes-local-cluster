@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-runner
+  namespace: github-runners
+  labels:
+    app: github-runner
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: github-runner
+  template:
+    metadata:
+      labels:
+        app: github-runner
+    spec:
+      serviceAccountName: github-runner
+      automountServiceAccountToken: true
+      containers:
+      - name: runner
+        image: github-runner:latest
+        imagePullPolicy: IfNotPresent
+        envFrom:
+        - configMapRef:
+            name: github-runner-config
+        - secretRef:
+            name: github-runner-secrets
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "384Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: workspace
+          mountPath: /runner/_work
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+      # Docker daemon for the runner's docker/buildx CLI calls. Requires
+      # privileged mode since dockerd needs it to manage containers/networking.
+      - name: dind
+        image: docker:24-dind
+        securityContext:
+          privileged: true
+        env:
+        - name: DOCKER_TLS_CERTDIR
+          value: ""
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "768Mi"
+            cpu: "300m"
+        volumeMounts:
+        - name: workspace
+          mountPath: /runner/_work
+        - name: docker-graph-storage
+          mountPath: /var/lib/docker
+      volumes:
+      - name: workspace
+        emptyDir:
+          sizeLimit: 10Gi
+      - name: docker-graph-storage
+        emptyDir:
+          sizeLimit: 20Gi
+      securityContext:
+        fsGroup: 1000

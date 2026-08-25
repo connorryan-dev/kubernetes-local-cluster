@@ -1,6 +1,6 @@
 # Applications
 
-## Migrated: OpenBao and Redis
+## Migrated: OpenBao, Redis, and the GitHub Actions runner
 
 `apps/openbao/` and `apps/redis/` are migrated from the sibling repo
 `bento-kubernetes-deployments` (which deployed them imperatively via `kubectl apply` /
@@ -16,6 +16,11 @@ works unchanged.
   resource limits), with the PVC switched to KIND's default `standard` StorageClass
   instead of the source's hardcoded hostPath PV, and the password moved out of git into a
   manually-created Secret (see `docs/secrets.md`).
+- **GitHub Actions runner** (`apps/github-runners/`) — migrated from a separate `github_runners`
+  GitRepository source into plain manifests in this repo, same pattern as Redis. That sibling
+  repo now only holds the Docker image build (Dockerfile, `deploy.sh`); this repo owns the
+  Deployment/ConfigMap/ServiceAccount/RBAC and the `github-runners` namespace's ResourceQuota.
+  The `GITHUB_TOKEN` Secret is manual — see `docs/secrets.md`.
 
 ## Not migrated
 

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: github-runners-quota
+  namespace: github-runners
+spec:
+  hard:
+    limits.cpu: "4"
+    limits.memory: 6Gi
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    pods: "5"

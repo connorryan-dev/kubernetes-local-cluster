@@ -13,7 +13,7 @@ this repo, and secrets are applied by hand whenever a cluster is created or recr
 ## Creating the runner's GitHub PAT secret
 
 The `github-runner-secrets` Secret (namespace `github-runners`) supplies `GITHUB_TOKEN` to
-the runner Deployment (see `github_runners` repo's `helm/deployment.yaml`). Create it after
+the runner Deployment (see `apps/github-runners/deployment.yaml`). Create it after
 the `github-runners` namespace exists:
 
 ```bash

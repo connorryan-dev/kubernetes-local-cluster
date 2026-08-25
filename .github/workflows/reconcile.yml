@@ -21,7 +21,6 @@ jobs:
         run: |
           echo "Reconciling Flux git sources..."
           flux reconcile source git flux-system --with-source || true
-          flux reconcile source git github-runners || true
           echo "✓ Sources reconciled"
 
       - name: Reconcile Flux kustomizations

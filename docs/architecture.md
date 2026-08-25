@@ -8,30 +8,29 @@ This repo uses Flux as a GitOps controller to reconcile Kubernetes cluster state
 flux-system (created by `flux bootstrap`)
     ↓
 infrastructure.yaml Kustomization
-    ├─ namespaces/              (flux-system, github-runners)
-    ├─ sources/                 (GitRepository: github_runners repo)
-    ├─ controllers/             (scaffold for future operators)
-    └─ runners/                 (Flux Kustomization → github_runners' ./helm)
-        (github-runner-secrets Secret is created manually, not tracked here)
+    ├─ namespaces/              (flux-system, github-runners; includes github-runners-quota)
+    ├─ sources/                 (empty scaffold — no external sources currently needed)
+    └─ controllers/             (scaffold for future operators)
     ↓
 apps.yaml Kustomization (dependsOn: infrastructure)
-    └─ [empty scaffold for future app workloads]
+    ├─ openbao/
+    ├─ redis/
+    └─ github-runners/          (Deployment/ConfigMap/ServiceAccount/RBAC, plain manifests)
+        (github-runner-secrets Secret is created manually, not tracked here)
 ```
 
 ## Key concepts
 
 ### Namespaces
 - `flux-system` — created and managed by `flux bootstrap`, holds Flux controllers and secrets
-- `github-runners` — holds self-hosted GitHub Actions runner pods (Deployment with replicas: 2)
+- `github-runners` — holds the self-hosted GitHub Actions runner pod (Deployment with replicas: 1)
 
 ### GitRepository sources
-- `flux-system` (auto-created): points to this repo (`kubernetes-local-cluster`)
-- `github-runners`: points to the `connorryan-dev/github_runners` repo, Kustomize path `./helm`
+- `flux-system` (auto-created): points to this repo (`kubernetes-local-cluster`) — the only source needed
 
 ### Kustomizations (declarative resources)
 - `infrastructure`: reconciles `infrastructure/` directory; no `dependsOn` (first to reconcile)
-- `github-runners` (inside `infrastructure/runners/`): reconciles the `github-runners` GitRepository's `./helm` path into `github-runners` namespace, depends on `namespaces` Kustomization
-- `apps`: reconciles `apps/` directory; depends on `infrastructure` (apps only start after infra is ready)
+- `apps`: reconciles `apps/` directory (including `apps/github-runners/`); depends on `infrastructure` (apps only start after infra is ready)
 
 ### Secrets management
 No Secret values are tracked in this repo. The runner's GitHub PAT (`GITHUB_TOKEN`, in the
@@ -49,15 +48,14 @@ before any user applications can safely deploy. The `dependsOn` chain ensures th
 This also keeps the mental model clean: infrastructure is cluster-wide concern; apps
 are multi-tenant workloads that depend on infrastructure being stable.
 
-## Why is `github_runners` a separate repo?
+## Why is the runner image still built in a separate repo?
 
-The GitHub Actions runner image and Kustomize manifests live in a separate repo
-(`github_runners`) for clear separation of concerns:
-- Runner repo owns the Docker image, Kustomize manifests, and deployment automation
-- This repo owns the cluster-wide orchestration and Flux integration
-
-Flux's `GitRepository` simply points at the runner repo and reconciles its declared state.
-If runner code changes, the runner repo is updated, pushed, and Flux picks up the change on its next sync.
+The GitHub Actions runner's Kubernetes manifests live in this repo (`apps/github-runners/`),
+same as any other app — Flux doesn't need a second `GitRepository` for them anymore. The
+Docker image itself (Dockerfile, entrypoint.sh) still lives in `github_runners`, since that's
+application source code being built, not a Kubernetes manifest — this repo doesn't build
+images. `deploy.sh` in that repo builds the image and `kind load docker-image`s it into the
+cluster; it no longer touches Kubernetes manifests or Flux.
 
 ## Disaster recovery
 

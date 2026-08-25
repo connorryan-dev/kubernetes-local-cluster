@@ -1,0 +1,15 @@
+# RBAC for the github-runner ServiceAccount.
+# Full cluster-admin access — local Kind cluster only, not for production.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: github-runner-cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: github-runner
+  namespace: github-runners
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin

@@ -4,4 +4,3 @@ resources:
   - namespaces/
   - sources/
   - controllers/
-  - runners/

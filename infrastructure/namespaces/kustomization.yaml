@@ -2,5 +2,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - github-runners.yaml
+  - github-runners-quota.yaml
   - bento-dev.yaml
   - flux-kustomization.yaml
