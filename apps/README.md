@@ -29,7 +29,7 @@ nothing to the cluster:
 
 ```bash
 brew tap gimlet-io/capacitor && brew install capacitor
-next --port 3333   # open http://localhost:3333
+capacitor --port 3333   # open http://localhost:3333
 ```
 
 The legacy in-cluster Capacitor (`ghcr.io/gimlet-io/capacitor-manifests`, final release
