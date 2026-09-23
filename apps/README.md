@@ -22,6 +22,19 @@ works unchanged.
   Deployment/ConfigMap/ServiceAccount/RBAC and the `github-runners` namespace's ResourceQuota.
   The `GITHUB_TOKEN` Secret is manual — see `docs/secrets.md`.
 
+## Capacitor (Flux UI)
+
+`apps/capacitor/` deploys the legacy Capacitor web UI for Flux from the upstream OCI artifact
+`ghcr.io/gimlet-io/capacitor-manifests`, pinned to `v0.4.8` (the final legacy release —
+upstream has moved to the local-first Capacitor Next binary). A Flux `patches` entry shrinks
+the Deployment to minimal resources (requests `10m`/`50Mi`, limits `100m`/`128Mi`). It runs in
+`flux-system`, whose ResourceQuota and LimitRange are tracked in `infrastructure/namespaces/`.
+
+```bash
+kubectl -n flux-system port-forward svc/capacitor 9000:9000
+# open http://localhost:9000
+```
+
 ## Not migrated
 
 - **Postgres** — already runs outside `bento-kubernetes-deployments`, as a standalone

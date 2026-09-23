@@ -4,5 +4,7 @@ resources:
   - github-runners.yaml
   - github-runners-quota.yaml
   - github-runners-limitrange.yaml
+  - flux-system-quota.yaml
+  - flux-system-limitrange.yaml
   - bento-dev.yaml
   - flux-kustomization.yaml
