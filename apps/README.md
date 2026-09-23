@@ -24,16 +24,17 @@ works unchanged.
 
 ## Capacitor (Flux UI)
 
-`apps/capacitor/` deploys the legacy Capacitor web UI for Flux from the upstream OCI artifact
-`ghcr.io/gimlet-io/capacitor-manifests`, pinned to `v0.4.8` (the final legacy release —
-upstream has moved to the local-first Capacitor Next binary). A Flux `patches` entry shrinks
-the Deployment to minimal resources (requests `10m`/`50Mi`, limits `100m`/`128Mi`). It runs in
-`flux-system`, whose ResourceQuota and LimitRange are tracked in `infrastructure/namespaces/`.
+Not deployed in-cluster. Run Capacitor Next locally instead — it uses your kubeconfig and adds
+nothing to the cluster:
 
 ```bash
-kubectl -n flux-system port-forward svc/capacitor 9000:9000
-# open http://localhost:9000
+brew tap gimlet-io/capacitor && brew install capacitor
+next --port 3333   # open http://localhost:3333
 ```
+
+The legacy in-cluster Capacitor (`ghcr.io/gimlet-io/capacitor-manifests`, final release
+`v0.4.8`) was tried and removed: it queries Flux beta APIs that Flux 2.9 no longer serves, so it
+shows no events.
 
 ## Not migrated
 
