@@ -24,7 +24,7 @@ spec:
       automountServiceAccountToken: true
       containers:
       - name: runner
-        image: github-runner:2.337.0
+        image: github-runner:2.337.0-1fa5259
         imagePullPolicy: IfNotPresent
         envFrom:
         - configMapRef:
