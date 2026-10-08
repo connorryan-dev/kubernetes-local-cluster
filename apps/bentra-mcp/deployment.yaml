@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bentra-mcp
+  namespace: bentra-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bentra-mcp
+  template:
+    metadata:
+      labels:
+        app: bentra-mcp
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mcp
+          image: ghcr.io/bentrallc/mcp:edge
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: bentra-mcp-config
+          env:
+            - name: BENTRA_MCP_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: bentra-mcp-secrets
+                  key: service-token
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "96Mi"
+              cpu: "25m"
+            limits:
+              memory: "192Mi"
+              cpu: "250m"

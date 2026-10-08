@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bentra-mcp-config
+  namespace: bentra-mcp
+data:
+  BENTRA_TRANSPORT: "http"
+  PORT: "8000"
+  # Local Bento on the MacBook, via its Tailscale IP (pods run on the Mac mini).
+  BENTRA_URL: "http://100.81.103.1:8000"
+  AUTHKIT_DOMAIN: "easygoing-moment-58-mcp-staging.authkit.app"
+  # Reached via `kubectl port-forward 8001:8000`; must match Bento's MCP_RESOURCE_URL.
+  MCP_RESOURCE_URL: "http://localhost:8001/mcp"

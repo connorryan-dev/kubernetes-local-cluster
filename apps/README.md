@@ -22,6 +22,17 @@ works unchanged.
   Deployment/ConfigMap/ServiceAccount/RBAC and the `github-runners` namespace's ResourceQuota.
   The `GITHUB_TOKEN` Secret is manual — see `docs/secrets.md`.
 
+## Bentra MCP (`apps/bentra-mcp/`)
+
+Minimal single-replica test deployment of the hosted Bentra MCP server
+(`ghcr.io/bentrallc/mcp:edge`, built by the `bentra-mcp` repo) in its own `bentra-mcp`
+namespace. Plain manifests, no ingress/HPA/PDB. It calls the local Bento on the MacBook at
+`http://100.81.103.1:8000` (Tailscale), so Bento must run with `runserver 0.0.0.0:8000` and
+allow that host. Reach it from the MacBook with `start-port-forwards.sh` in
+`bento-kubernetes-deployments` (`localhost:8001` → service port 8000; `MCP_RESOURCE_URL` is
+`http://localhost:8001/mcp`). Secrets are manual — see `docs/secrets.md`. The pod pulls
+`edge` on every start: `kubectl -n bentra-mcp rollout restart deploy/bentra-mcp` to update.
+
 ## Capacitor (Flux UI)
 
 Not deployed in-cluster. Run Capacitor Next locally instead — it uses your kubeconfig and adds

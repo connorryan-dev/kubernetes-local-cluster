@@ -7,4 +7,5 @@ resources:
   - flux-system-quota.yaml
   - flux-system-limitrange.yaml
   - bento-dev.yaml
+  - bentra-mcp.yaml
   - flux-kustomization.yaml

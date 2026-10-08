@@ -82,6 +82,27 @@ kubectl create secret generic redis-secret \
   --from-literal=REDIS_PASSWORD=<new password>
 ```
 
+## Bentra MCP (`bentra-mcp`)
+
+Two Secrets, created after the `bentra-mcp` namespace exists. The image is private on GHCR,
+so it needs a pull secret (PAT with `read:packages`):
+
+```bash
+kubectl create secret docker-registry ghcr-pull \
+  -n bentra-mcp \
+  --docker-server=ghcr.io \
+  --docker-username=<github-user> \
+  --docker-password=<pat-with-read:packages>
+```
+
+And the shared service token whose sha256 is local Bento's `MCP_SERVICE_TOKEN_SHA256`:
+
+```bash
+kubectl create secret generic bentra-mcp-secrets \
+  -n bentra-mcp \
+  --from-literal=service-token=<service-token>
+```
+
 ## Adding a new app-specific Secret
 
 Same pattern — create it directly in the target namespace with `kubectl create secret`,
