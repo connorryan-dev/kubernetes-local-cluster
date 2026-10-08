@@ -31,7 +31,9 @@ namespace. Plain manifests, no ingress/HPA/PDB. It calls the local Bento on the 
 allow that host. Reach it from the MacBook with `start-port-forwards.sh` in
 `bento-kubernetes-deployments` (`localhost:8001` → service port 8000; `MCP_RESOURCE_URL` is
 `http://localhost:8001/mcp`). Secrets are manual — see `docs/secrets.md`. The pod pulls
-`edge` on every start: `kubectl -n bentra-mcp rollout restart deploy/bentra-mcp` to update.
+`edge` on every start: `kubectl -n bentra-mcp delete pod -l app=bentra-mcp` to update
+(not `rollout restart` — Flux reverts the restart annotation and replaces the pod again). A
+pod replacement kills the port-forward; re-run `start-port-forwards.sh`.
 
 ## Capacitor (Flux UI)
 
