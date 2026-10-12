@@ -1,54 +1,56 @@
 # Adding a Cluster Controller or Operator
 
-This guide explains how to add a new Kubernetes operator or controller (e.g., RabbitMQ Cluster Operator, cert-manager, KEDA)
+This guide explains how to add a new Kubernetes operator or controller (e.g., KEDA, cert-manager)
 to the cluster using Flux.
 
 ## Quick start (Helm-based operator)
 
-Most modern operators are distributed via Helm. Example: RabbitMQ Cluster Operator.
+Most modern operators are distributed via Helm. Example: KEDA, which the Bentra runner chart's
+optional `ScaledJob` mode needs.
 
 1. Create a directory for the operator:
    ```bash
-   mkdir -p infrastructure/controllers/rabbitmq-cluster-operator
+   mkdir -p infrastructure/controllers/keda
    ```
 
 2. Create a Flux `HelmRepository` (if not already in `infrastructure/sources/`):
    ```yaml
-   # infrastructure/sources/rabbitmq-repository.yaml
+   # infrastructure/sources/keda-repository.yaml
    apiVersion: source.toolkit.fluxcd.io/v1beta2
    kind: HelmRepository
    metadata:
-     name: rabbitmq
+     name: kedacore
      namespace: flux-system
    spec:
      interval: 10m
-     url: https://charts.bitnami.com/bitnami
+     url: https://kedacore.github.io/charts
    ```
 
 3. Add it to `infrastructure/sources/kustomization.yaml`:
    ```yaml
    resources:
      - github-runners-repo.yaml
-     - rabbitmq-repository.yaml  # <- add this
+     - keda-repository.yaml  # <- add this
    ```
 
 4. Create a Flux `HelmRelease` for the operator:
    ```yaml
-   # infrastructure/controllers/rabbitmq-cluster-operator/release.yaml
+   # infrastructure/controllers/keda/release.yaml
    apiVersion: helm.toolkit.fluxcd.io/v2beta2
    kind: HelmRelease
    metadata:
-     name: rabbitmq-cluster-operator
+     name: keda
      namespace: flux-system
    spec:
      interval: 10m
+     targetNamespace: keda
      chart:
        spec:
-         chart: rabbitmq-cluster-operator
-         version: "3.13.x"  # use a version constraint
+         chart: keda
+         version: "2.x"  # use a version constraint
          sourceRef:
            kind: HelmRepository
-           name: rabbitmq
+           name: kedacore
            namespace: flux-system
      install:
        crds: create
@@ -59,7 +61,7 @@ Most modern operators are distributed via Helm. Example: RabbitMQ Cluster Operat
        # see the Helm chart documentation
    ```
 
-5. Create `infrastructure/controllers/rabbitmq-cluster-operator/kustomization.yaml`:
+5. Create `infrastructure/controllers/keda/kustomization.yaml`:
    ```yaml
    apiVersion: kustomize.config.k8s.io/v1beta1
    kind: Kustomization
@@ -70,20 +72,20 @@ Most modern operators are distributed via Helm. Example: RabbitMQ Cluster Operat
 6. Add it to `infrastructure/controllers/kustomization.yaml`:
    ```yaml
    resources:
-     - rabbitmq-cluster-operator/kustomization.yaml
+     - keda/kustomization.yaml
    ```
 
 7. Commit and push:
    ```bash
    git add infrastructure/
-   git commit -m "Add RabbitMQ Cluster Operator via Helm"
+   git commit -m "Add KEDA via Helm"
    git push
    ```
 
 8. Flux will reconcile within ~10 minutes. Verify:
    ```bash
    flux get helmreleases -n flux-system
-   kubectl get crds | grep rabbitmq
+   kubectl get crds | grep keda.sh
    ```
 
 ## Raw Kubernetes manifests (no Helm)
@@ -151,7 +153,7 @@ spec:
 
 ## Reconciliation dependencies
 
-If workloads depend on the operator being ready (e.g., Bento depending on RabbitMQ Cluster Operator),
+If workloads depend on the operator being ready (e.g., runners in `ScaledJob` mode depending on KEDA),
 declare this in the app Kustomization:
 
 ```yaml
@@ -170,31 +172,15 @@ spec:
     - name: infrastructure  # wait for infrastructure (including operators) to be ready
 ```
 
-This ensures Bento's RabbitMQ `RabbitmqCluster` CRD usage doesn't proceed until the operator exists.
-
-## Example: RabbitMQ from bento-kubernetes-deployments
-
-The sibling repo `bento-kubernetes-deployments` contains raw manifests for a `RabbitmqCluster`:
-
-```yaml
-apiVersion: rabbitmq.com/v1beta1
-kind: RabbitmqCluster
-metadata:
-  name: rabbitmq
-  namespace: bento-dev
-spec:
-  # cluster configuration
-```
-
-This CRD is managed by the RabbitMQ Cluster Operator. Once the operator is installed via the
-pattern above, the CRD manifests can be onboarded as part of the Bento app (see `apps/README.md`).
+This ensures resources that use the operator's CRDs (such as a KEDA `ScaledJob`) aren't applied
+until the operator exists.
 
 ## Troubleshooting
 
 ### HelmRelease shows "failed to fetch Helm repository"
 ```bash
-flux reconcile source helm rabbitmq -n flux-system
-flux logs -n flux-system --follow | grep rabbitmq
+flux reconcile source helm kedacore -n flux-system
+flux logs -n flux-system --follow | grep keda
 ```
 
 Verify the Helm repository URL is correct and accessible.

@@ -1,7 +1,7 @@
 # Cluster Controllers and Operators
 
 This directory holds scaffold and manifests for cluster-wide Kubernetes controllers and operators
-(e.g., RabbitMQ Cluster Operator, cert-manager, KEDA, etc.).
+(e.g., KEDA, cert-manager).
 
 ## Pattern
 
@@ -19,12 +19,7 @@ The `infrastructure.yaml` Kustomization (at `clusters/desktop/infrastructure.yam
 ensures this controller scaffold is reconciled _before_ the `apps` Kustomization,
 so any CRDs or namespaces a controller provides are available to user workloads.
 
-## Example: RabbitMQ Cluster Operator
-
-The `bento-kubernetes-deployments` repo (sibling repo) contains a worked example of
-a RabbitMQ `RabbitmqCluster` CRD usage. When Bento's Kubernetes deployment is migrated
-into this repo (tracked in `apps/README.md` backlog), the RabbitMQ Cluster Operator
-should be installed here and structured as described above.
+See `docs/adding-a-controller.md` for a worked example (KEDA).
 
 ## Current state
 

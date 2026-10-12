@@ -193,13 +193,12 @@ resources:
 
 The `bento-kubernetes-deployments` repo currently has:
 - Namespaces: `bento-dev`, `bento-test`
-- Postgres, RabbitMQ (via CRD), Redis, OpenBao
+- Redis and OpenBao manifests (Postgres runs on the NAS)
 
 When this is migrated to Flux:
 1. Create `apps/bento/` with the GitRepository + Kustomization pattern above
-2. Ensure the RabbitMQ Cluster Operator is installed in `infrastructure/controllers/` (with its CRD)
-3. Declare `dependsOn: [infrastructure]` so RabbitMQ Cluster Operator is ready before Bento reconciles
-4. Reference Bento's namespaces and manifests from its own repo
+2. Reference Bento's namespaces and manifests from its own repo
+3. No operator is needed; add `dependsOn: [infrastructure]` only if a controller is introduced later
 
 See `apps/README.md` for the current backlog status.
 
@@ -232,4 +231,4 @@ kubectl kustomize apps/my-app | kubeconform
 
 - See `docs/bootstrap-runbook.md` to set up the cluster from scratch
 - See `docs/adding-a-namespace.md` for namespace management
-- See `docs/adding-a-controller.md` if your app depends on an operator (e.g., RabbitMQ Cluster Operator)
+- See `docs/adding-a-controller.md` if your app depends on an operator (e.g., KEDA)

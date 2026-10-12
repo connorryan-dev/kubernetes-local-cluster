@@ -53,7 +53,6 @@ shows no events.
 
 - **Postgres** — already runs outside `bento-kubernetes-deployments`, as a standalone
   container on the NAS. Not part of this repo.
-- **RabbitMQ** — removed from the Bento stack entirely upstream; nothing to migrate.
 
 ## Future work
 
