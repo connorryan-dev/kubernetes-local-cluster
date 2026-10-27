@@ -32,12 +32,13 @@ spec:
         - secretRef:
             name: github-runner-secrets
         resources:
+          # The job steps run here: pip install + bento's test suite (4 workers) OOMKilled at 384Mi.
           requests:
-            memory: "256Mi"
-            cpu: "100m"
+            memory: "512Mi"
+            cpu: "250m"
           limits:
-            memory: "384Mi"
-            cpu: "200m"
+            memory: "3Gi"
+            cpu: "2"
         volumeMounts:
         - name: workspace
           mountPath: /runner/_work
@@ -58,8 +59,8 @@ spec:
             memory: "256Mi"
             cpu: "100m"
           limits:
-            memory: "768Mi"
-            cpu: "300m"
+            memory: "1536Mi"
+            cpu: "1"
         volumeMounts:
         - name: workspace
           mountPath: /runner/_work
